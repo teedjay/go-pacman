@@ -197,6 +197,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	// Draw Pac-Man.
 	g.drawPacMan(screen)
+
+	// Draw HUD.
+	DrawHUD(screen, g.score, g.highScore, g.lives, g.level)
 }
 
 // drawGhost draws a ghost sprite based on its current mode.
