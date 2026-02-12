@@ -18,9 +18,10 @@ const (
 )
 
 type Game struct {
-	maze   *Maze
-	pacman *PacMan
-	ghosts [4]*Ghost
+	maze      *Maze
+	pacman    *PacMan
+	ghosts    [4]*Ghost
+	modeTimer *ModeTimer
 
 	score     int
 	highScore int
@@ -31,11 +32,12 @@ type Game struct {
 func New() *Game {
 	InitSprites()
 	return &Game{
-		maze:   NewMaze(),
-		pacman: NewPacMan(),
-		ghosts: NewGhosts(),
-		lives:  3,
-		level:  1,
+		maze:      NewMaze(),
+		pacman:    NewPacMan(),
+		ghosts:    NewGhosts(),
+		modeTimer: NewModeTimer(1),
+		lives:     3,
+		level:     1,
 	}
 }
 
@@ -43,6 +45,14 @@ func (g *Game) Update() error {
 	ReadInput(g.pacman)
 	g.pacman.Move(g.maze)
 	g.checkDotConsumption()
+
+	// Update ghost AI
+	g.modeTimer.Tick()
+	globalMode := g.modeTimer.CurrentMode()
+	for _, ghost := range g.ghosts {
+		UpdateGhost(ghost, g.maze, g.pacman, globalMode)
+	}
+
 	return nil
 }
 
