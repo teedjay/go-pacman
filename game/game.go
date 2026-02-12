@@ -23,6 +23,8 @@ type Game struct {
 	ghosts    [4]*Ghost
 	modeTimer *ModeTimer
 
+	sound *SoundManager
+
 	score            int
 	highScore        int
 	lives            int
@@ -34,7 +36,9 @@ type Game struct {
 
 func New() *Game {
 	InitSprites()
+	sm := NewSoundManager()
 	return &Game{
+		sound:     sm,
 		maze:      NewMaze(),
 		pacman:    NewPacMan(),
 		ghosts:    NewGhosts(),
@@ -98,9 +102,11 @@ func (g *Game) checkDotConsumption() {
 	if tile == TileDot {
 		g.maze.ConsumeDot(tx, ty)
 		g.score += 10
+		g.sound.PlayChomp()
 	} else if tile == TilePowerPellet {
 		g.maze.ConsumeDot(tx, ty)
 		g.score += 50
+		g.sound.PlayPowerUp()
 		g.triggerFrightenedMode()
 	}
 }
@@ -145,11 +151,13 @@ func (g *Game) checkGhostCollisions() {
 			g.score += g.ghostEatScore()
 			g.ghostsEatenCombo++
 			ghost.Mode = GhostEaten
+			g.sound.PlayGhostEaten()
 		} else {
 			// Pac-Man dies
 			g.pacman.Alive = false
 			g.lives--
 			g.deathTimer = 120 // pause before respawn
+			g.sound.PlayDeath()
 			return
 		}
 	}
