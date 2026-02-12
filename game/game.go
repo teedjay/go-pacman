@@ -1,6 +1,7 @@
 package game
 
 import (
+	"image/color"
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -25,13 +26,16 @@ type Game struct {
 
 	sound *SoundManager
 
+	state      GameState
+	stateTimer int
+	tickCount  int
+
 	score            int
 	highScore        int
 	lives            int
 	level            int
 	ghostsEatenCombo int // resets each power pellet
 	frightenedTimer  int // ticks remaining for frightened mode
-	deathTimer       int // ticks remaining for death pause/respawn
 }
 
 func New() *Game {
@@ -43,21 +47,55 @@ func New() *Game {
 		pacman:    NewPacMan(),
 		ghosts:    NewGhosts(),
 		modeTimer: NewModeTimer(1),
+		state:     StateTitle,
 		lives:     3,
 		level:     1,
 	}
 }
 
 func (g *Game) Update() error {
-	// Handle death pause
-	if !g.pacman.Alive {
-		g.deathTimer--
-		if g.deathTimer <= 0 {
-			g.respawn()
-		}
-		return nil
-	}
+	g.tickCount++
 
+	switch g.state {
+	case StateTitle:
+		g.updateTitle()
+	case StateReady:
+		g.updateReady()
+	case StatePlaying:
+		g.updatePlaying()
+	case StateDeath:
+		g.updateDeath()
+	case StateLevelClear:
+		g.updateLevelClear()
+	case StateGameOver:
+		g.updateGameOver()
+	}
+	return nil
+}
+
+func (g *Game) updateTitle() {
+	if ebiten.IsKeyPressed(ebiten.KeySpace) {
+		g.score = 0
+		g.lives = 3
+		g.level = 1
+		g.maze.Reset()
+		g.pacman = NewPacMan()
+		g.ghosts = NewGhosts()
+		g.modeTimer = NewModeTimer(1)
+		g.frightenedTimer = 0
+		g.state = StateReady
+		g.stateTimer = 120 // 2 seconds
+	}
+}
+
+func (g *Game) updateReady() {
+	g.stateTimer--
+	if g.stateTimer <= 0 {
+		g.state = StatePlaying
+	}
+}
+
+func (g *Game) updatePlaying() {
 	ReadInput(g.pacman)
 	g.pacman.Move(g.maze)
 	g.checkDotConsumption()
@@ -68,7 +106,7 @@ func (g *Game) Update() error {
 		if g.frightenedTimer == 0 {
 			for _, ghost := range g.ghosts {
 				if ghost.Mode == GhostFrightened {
-					ghost.Mode = GhostChase // return to normal
+					ghost.Mode = GhostChase
 				}
 			}
 		}
@@ -84,15 +122,53 @@ func (g *Game) Update() error {
 	// Check collisions
 	g.checkGhostCollisions()
 
-	return nil
+	// Check level clear
+	if g.maze.RemainingDots() == 0 {
+		g.state = StateLevelClear
+		g.stateTimer = 120 // 2 seconds of flashing
+		g.sound.PlayLevelClear()
+	}
 }
 
-// respawn resets Pac-Man and ghosts after a death.
-func (g *Game) respawn() {
-	g.pacman = NewPacMan()
-	g.ghosts = NewGhosts()
-	g.modeTimer.Reset()
-	g.frightenedTimer = 0
+func (g *Game) updateDeath() {
+	g.stateTimer--
+	if g.stateTimer <= 0 {
+		if g.lives <= 0 {
+			if g.score > g.highScore {
+				g.highScore = g.score
+			}
+			g.state = StateGameOver
+			g.stateTimer = 180 // 3 seconds
+		} else {
+			g.pacman = NewPacMan()
+			g.ghosts = NewGhosts()
+			g.modeTimer.Reset()
+			g.frightenedTimer = 0
+			g.state = StateReady
+			g.stateTimer = 120
+		}
+	}
+}
+
+func (g *Game) updateLevelClear() {
+	g.stateTimer--
+	if g.stateTimer <= 0 {
+		g.level++
+		g.maze.Reset()
+		g.pacman = NewPacMan()
+		g.ghosts = NewGhosts()
+		g.modeTimer = NewModeTimer(g.level)
+		g.frightenedTimer = 0
+		g.state = StateReady
+		g.stateTimer = 120
+	}
+}
+
+func (g *Game) updateGameOver() {
+	g.stateTimer--
+	if g.stateTimer <= 0 {
+		g.state = StateTitle
+	}
 }
 
 // checkDotConsumption checks if Pac-Man is on a dot or power pellet and consumes it.
@@ -114,7 +190,7 @@ func (g *Game) checkDotConsumption() {
 // triggerFrightenedMode sets all non-eaten ghosts to frightened and reverses their direction.
 func (g *Game) triggerFrightenedMode() {
 	g.ghostsEatenCombo = 0
-	g.frightenedTimer = 360 // 6 seconds at 60 TPS (will be adjusted by difficulty later)
+	g.frightenedTimer = 360 // 6 seconds at 60 TPS (adjusted by difficulty in Task 13)
 	for _, ghost := range g.ghosts {
 		if ghost.Mode != GhostEaten && !ghost.InHouse {
 			ghost.Mode = GhostFrightened
@@ -133,7 +209,6 @@ func CheckCollision(p *PacMan, gh *Ghost) bool {
 
 // ghostEatScore returns the score for eating the next ghost in the combo.
 func (g *Game) ghostEatScore() int {
-	// 200, 400, 800, 1600
 	return 200 << g.ghostsEatenCombo
 }
 
@@ -147,7 +222,6 @@ func (g *Game) checkGhostCollisions() {
 			continue
 		}
 		if ghost.Mode == GhostFrightened {
-			// Eat the ghost
 			g.score += g.ghostEatScore()
 			g.ghostsEatenCombo++
 			ghost.Mode = GhostEaten
@@ -156,7 +230,8 @@ func (g *Game) checkGhostCollisions() {
 			// Pac-Man dies
 			g.pacman.Alive = false
 			g.lives--
-			g.deathTimer = 120 // pause before respawn
+			g.state = StateDeath
+			g.stateTimer = 120
 			g.sound.PlayDeath()
 			return
 		}
@@ -164,13 +239,63 @@ func (g *Game) checkGhostCollisions() {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	// Draw maze tiles.
+	white := color.RGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xFF}
+
+	switch g.state {
+	case StateTitle:
+		DrawText(screen, "GO PAC-MAN", 62, 100, white)
+		DrawText(screen, "PRESS SPACE", 56, 140, white)
+		DrawText(screen, "TO START", 68, 155, white)
+		return
+
+	case StateGameOver:
+		g.drawMaze(screen)
+		DrawText(screen, "GAME OVER", 65, 160, white)
+		DrawHUD(screen, g.score, g.highScore, g.lives, g.level)
+		return
+	}
+
+	// All other states draw the maze and entities
+	g.drawMaze(screen)
+
+	// Draw ghosts (not during death)
+	if g.state != StateDeath {
+		for _, ghost := range g.ghosts {
+			g.drawGhost(screen, ghost)
+		}
+	}
+
+	// Draw Pac-Man (not during death after animation would play)
+	if g.pacman.Alive {
+		g.drawPacMan(screen)
+	}
+
+	// Draw HUD
+	DrawHUD(screen, g.score, g.highScore, g.lives, g.level)
+
+	// State-specific overlays
+	switch g.state {
+	case StateReady:
+		DrawText(screen, "READY!", 85, 164, color.RGBA{R: 0xFF, G: 0xFF, B: 0x00, A: 0xFF})
+	case StateLevelClear:
+		// Flash walls: alternate white/blue every 15 ticks
+		// (handled in drawMaze via tickCount)
+	}
+}
+
+// drawMaze draws all maze tiles.
+func (g *Game) drawMaze(screen *ebiten.Image) {
 	for y := 0; y < MazeRows; y++ {
 		for x := 0; x < MazeCols; x++ {
 			var tile *ebiten.Image
 			switch g.maze.TileAt(x, y) {
 			case TileWall:
-				tile = sprites.Wall
+				// Flash walls during level clear
+				if g.state == StateLevelClear && (g.stateTimer/15)%2 == 1 {
+					tile = sprites.Empty // flash to black
+				} else {
+					tile = sprites.Wall
+				}
 			case TileDot:
 				tile = sprites.Dot
 			case TilePowerPellet:
@@ -189,17 +314,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			screen.DrawImage(tile, op)
 		}
 	}
-
-	// Draw ghosts.
-	for _, ghost := range g.ghosts {
-		g.drawGhost(screen, ghost)
-	}
-
-	// Draw Pac-Man.
-	g.drawPacMan(screen)
-
-	// Draw HUD.
-	DrawHUD(screen, g.score, g.highScore, g.lives, g.level)
 }
 
 // drawGhost draws a ghost sprite based on its current mode.
@@ -226,28 +340,19 @@ func (g *Game) drawPacMan(screen *ebiten.Image) {
 	frame := sprites.PacManFrames[p.AnimFrame]
 
 	op := &ebiten.DrawImageOptions{}
-
-	// Step 1: Center the sprite at origin (center pixel is at 6,6 in 13x13 image).
 	op.GeoM.Translate(-6, -6)
 
-	// Step 2: Apply rotation/flip based on direction.
 	switch p.Dir {
 	case DirLeft:
-		// Flip horizontally: scale X by -1.
 		op.GeoM.Scale(-1, 1)
 	case DirUp:
-		// Rotate -90 degrees (counter-clockwise).
 		op.GeoM.Rotate(-math.Pi / 2)
 	case DirDown:
-		// Rotate +90 degrees (clockwise).
 		op.GeoM.Rotate(math.Pi / 2)
 	case DirRight, DirNone:
-		// No transform needed; mouth faces right by default.
 	}
 
-	// Step 3: Translate to Pac-Man's pixel position + HUD offset.
 	op.GeoM.Translate(p.X, p.Y+float64(HUDTopRows*TileSize))
-
 	screen.DrawImage(frame, op)
 }
 
