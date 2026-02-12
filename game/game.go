@@ -20,6 +20,11 @@ const (
 type Game struct {
 	maze   *Maze
 	pacman *PacMan
+
+	score     int
+	highScore int
+	lives     int
+	level     int
 }
 
 func New() *Game {
@@ -27,13 +32,30 @@ func New() *Game {
 	return &Game{
 		maze:   NewMaze(),
 		pacman: NewPacMan(),
+		lives:  3,
+		level:  1,
 	}
 }
 
 func (g *Game) Update() error {
 	ReadInput(g.pacman)
 	g.pacman.Move(g.maze)
+	g.checkDotConsumption()
 	return nil
+}
+
+// checkDotConsumption checks if Pac-Man is on a dot or power pellet and consumes it.
+func (g *Game) checkDotConsumption() {
+	tx, ty := g.pacman.TileX(), g.pacman.TileY()
+	tile := g.maze.TileAt(tx, ty)
+	if tile == TileDot {
+		g.maze.ConsumeDot(tx, ty)
+		g.score += 10
+	} else if tile == TilePowerPellet {
+		g.maze.ConsumeDot(tx, ty)
+		g.score += 50
+		// TODO: trigger frightened mode (Task 9)
+	}
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
