@@ -83,8 +83,18 @@ func (g *Game) updateTitle() {
 		g.ghosts = NewGhosts()
 		g.modeTimer = NewModeTimer(1)
 		g.frightenedTimer = 0
+		g.applyDifficulty()
 		g.state = StateReady
 		g.stateTimer = 120 // 2 seconds
+	}
+}
+
+// applyDifficulty sets speeds and timers based on current level.
+func (g *Game) applyDifficulty() {
+	d := GetDifficulty(g.level)
+	g.pacman.Speed = d.PacManSpeed
+	for _, ghost := range g.ghosts {
+		ghost.Speed = d.GhostSpeed
 	}
 }
 
@@ -159,6 +169,7 @@ func (g *Game) updateLevelClear() {
 		g.ghosts = NewGhosts()
 		g.modeTimer = NewModeTimer(g.level)
 		g.frightenedTimer = 0
+		g.applyDifficulty()
 		g.state = StateReady
 		g.stateTimer = 120
 	}
@@ -190,7 +201,7 @@ func (g *Game) checkDotConsumption() {
 // triggerFrightenedMode sets all non-eaten ghosts to frightened and reverses their direction.
 func (g *Game) triggerFrightenedMode() {
 	g.ghostsEatenCombo = 0
-	g.frightenedTimer = 360 // 6 seconds at 60 TPS (adjusted by difficulty in Task 13)
+	g.frightenedTimer = GetDifficulty(g.level).FrightenedTicks
 	for _, ghost := range g.ghosts {
 		if ghost.Mode != GhostEaten && !ghost.InHouse {
 			ghost.Mode = GhostFrightened
