@@ -2,17 +2,22 @@ package game
 
 import (
 	"image/color"
+	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
+// PacManSpriteSize is the width/height of the Pac-Man sprite in pixels.
+const PacManSpriteSize = 13
+
 // Sprites holds pre-generated tile images for maze rendering.
 type Sprites struct {
-	Wall        *ebiten.Image
-	Dot         *ebiten.Image
-	PowerPellet *ebiten.Image
-	Empty       *ebiten.Image
-	GhostDoor   *ebiten.Image
+	Wall         *ebiten.Image
+	Dot          *ebiten.Image
+	PowerPellet  *ebiten.Image
+	Empty        *ebiten.Image
+	GhostDoor    *ebiten.Image
+	PacManFrames [3]*ebiten.Image // closed, half-open, full-open
 }
 
 // sprites is the package-level sprite cache, initialized by InitSprites.
@@ -26,6 +31,11 @@ func InitSprites() {
 		PowerPellet: GeneratePowerPelletSprite(),
 		Empty:       GenerateEmptyTile(),
 		GhostDoor:   GenerateGhostDoorTile(),
+		PacManFrames: [3]*ebiten.Image{
+			GeneratePacManFrame(0),
+			GeneratePacManFrame(1),
+			GeneratePacManFrame(2),
+		},
 	}
 }
 
@@ -93,5 +103,61 @@ func GenerateGhostDoorTile() *ebiten.Image {
 			img.Set(x, y, pink)
 		}
 	}
+	return img
+}
+
+// GeneratePacManFrame generates a 13x13 Pac-Man sprite frame.
+// frame 0: closed mouth (full circle)
+// frame 1: half-open mouth (~30 degrees)
+// frame 2: full-open mouth (~60 degrees)
+// The mouth faces right by default.
+func GeneratePacManFrame(frame int) *ebiten.Image {
+	const size = PacManSpriteSize
+	const cx, cy = 6, 6 // center
+	const radius = 6
+
+	img := ebiten.NewImage(size, size)
+	yellow := color.RGBA{R: 0xFF, G: 0xFF, B: 0x00, A: 0xFF}
+
+	// Determine mouth half-angle in radians based on frame.
+	var mouthHalfAngle float64
+	switch frame {
+	case 0:
+		mouthHalfAngle = 0 // closed
+	case 1:
+		mouthHalfAngle = 15.0 * math.Pi / 180.0 // ~30 degrees total
+	case 2:
+		mouthHalfAngle = 30.0 * math.Pi / 180.0 // ~60 degrees total
+	}
+
+	for y := 0; y < size; y++ {
+		for x := 0; x < size; x++ {
+			dx := x - cx
+			dy := y - cy
+
+			// Check if pixel is within the circle.
+			if dx*dx+dy*dy > radius*radius {
+				continue
+			}
+
+			// For frame 0 (closed), draw all pixels in the circle.
+			if frame == 0 {
+				img.Set(x, y, yellow)
+				continue
+			}
+
+			// Calculate angle from center to this pixel.
+			// atan2 returns angle in [-pi, pi], with 0 pointing right.
+			angle := math.Atan2(float64(dy), float64(dx))
+
+			// Exclude pixels within the mouth angle range (mouth faces right, centered on angle 0).
+			if angle > -mouthHalfAngle && angle < mouthHalfAngle && dx > 0 {
+				continue // inside the mouth, skip this pixel
+			}
+
+			img.Set(x, y, yellow)
+		}
+	}
+
 	return img
 }
