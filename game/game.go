@@ -20,6 +20,7 @@ const (
 type Game struct {
 	maze   *Maze
 	pacman *PacMan
+	ghosts [4]*Ghost
 
 	score     int
 	highScore int
@@ -32,6 +33,7 @@ func New() *Game {
 	return &Game{
 		maze:   NewMaze(),
 		pacman: NewPacMan(),
+		ghosts: NewGhosts(),
 		lives:  3,
 		level:  1,
 	}
@@ -85,8 +87,31 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 	}
 
+	// Draw ghosts.
+	for _, ghost := range g.ghosts {
+		g.drawGhost(screen, ghost)
+	}
+
 	// Draw Pac-Man.
 	g.drawPacMan(screen)
+}
+
+// drawGhost draws a ghost sprite based on its current mode.
+func (g *Game) drawGhost(screen *ebiten.Image, ghost *Ghost) {
+	var sprite *ebiten.Image
+	switch ghost.Mode {
+	case GhostFrightened:
+		sprite = sprites.GhostFrightened
+	case GhostEaten:
+		sprite = sprites.GhostEyes
+	default:
+		sprite = sprites.GhostSprites[ghost.ID]
+	}
+
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(-6, -6)
+	op.GeoM.Translate(ghost.X, ghost.Y+float64(HUDTopRows*TileSize))
+	screen.DrawImage(sprite, op)
 }
 
 // drawPacMan draws the Pac-Man sprite with appropriate rotation/flip for its direction.
