@@ -31,6 +31,8 @@ func New() *Game {
 }
 
 func (g *Game) Update() error {
+	ReadInput(g.pacman)
+	g.pacman.Move(g.maze)
 	return nil
 }
 
