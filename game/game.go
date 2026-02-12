@@ -23,10 +23,13 @@ type Game struct {
 	ghosts    [4]*Ghost
 	modeTimer *ModeTimer
 
-	score     int
-	highScore int
-	lives     int
-	level     int
+	score            int
+	highScore        int
+	lives            int
+	level            int
+	ghostsEatenCombo int // resets each power pellet
+	frightenedTimer  int // ticks remaining for frightened mode
+	deathTimer       int // ticks remaining for death pause/respawn
 }
 
 func New() *Game {
@@ -42,9 +45,30 @@ func New() *Game {
 }
 
 func (g *Game) Update() error {
+	// Handle death pause
+	if !g.pacman.Alive {
+		g.deathTimer--
+		if g.deathTimer <= 0 {
+			g.respawn()
+		}
+		return nil
+	}
+
 	ReadInput(g.pacman)
 	g.pacman.Move(g.maze)
 	g.checkDotConsumption()
+
+	// Update frightened timer
+	if g.frightenedTimer > 0 {
+		g.frightenedTimer--
+		if g.frightenedTimer == 0 {
+			for _, ghost := range g.ghosts {
+				if ghost.Mode == GhostFrightened {
+					ghost.Mode = GhostChase // return to normal
+				}
+			}
+		}
+	}
 
 	// Update ghost AI
 	g.modeTimer.Tick()
@@ -53,7 +77,18 @@ func (g *Game) Update() error {
 		UpdateGhost(ghost, g.maze, g.pacman, globalMode)
 	}
 
+	// Check collisions
+	g.checkGhostCollisions()
+
 	return nil
+}
+
+// respawn resets Pac-Man and ghosts after a death.
+func (g *Game) respawn() {
+	g.pacman = NewPacMan()
+	g.ghosts = NewGhosts()
+	g.modeTimer.Reset()
+	g.frightenedTimer = 0
 }
 
 // checkDotConsumption checks if Pac-Man is on a dot or power pellet and consumes it.
@@ -66,7 +101,57 @@ func (g *Game) checkDotConsumption() {
 	} else if tile == TilePowerPellet {
 		g.maze.ConsumeDot(tx, ty)
 		g.score += 50
-		// TODO: trigger frightened mode (Task 9)
+		g.triggerFrightenedMode()
+	}
+}
+
+// triggerFrightenedMode sets all non-eaten ghosts to frightened and reverses their direction.
+func (g *Game) triggerFrightenedMode() {
+	g.ghostsEatenCombo = 0
+	g.frightenedTimer = 360 // 6 seconds at 60 TPS (will be adjusted by difficulty later)
+	for _, ghost := range g.ghosts {
+		if ghost.Mode != GhostEaten && !ghost.InHouse {
+			ghost.Mode = GhostFrightened
+			ghost.Dir = reverseDir(ghost.Dir)
+		}
+	}
+}
+
+// CheckCollision returns true if Pac-Man and a ghost are within 6 pixels of each other.
+func CheckCollision(p *PacMan, gh *Ghost) bool {
+	dx := p.X - gh.X
+	dy := p.Y - gh.Y
+	dist := math.Sqrt(dx*dx + dy*dy)
+	return dist < 6
+}
+
+// ghostEatScore returns the score for eating the next ghost in the combo.
+func (g *Game) ghostEatScore() int {
+	// 200, 400, 800, 1600
+	return 200 << g.ghostsEatenCombo
+}
+
+// checkGhostCollisions checks for Pac-Man colliding with any ghost.
+func (g *Game) checkGhostCollisions() {
+	for _, ghost := range g.ghosts {
+		if ghost.InHouse || ghost.Mode == GhostEaten {
+			continue
+		}
+		if !CheckCollision(g.pacman, ghost) {
+			continue
+		}
+		if ghost.Mode == GhostFrightened {
+			// Eat the ghost
+			g.score += g.ghostEatScore()
+			g.ghostsEatenCombo++
+			ghost.Mode = GhostEaten
+		} else {
+			// Pac-Man dies
+			g.pacman.Alive = false
+			g.lives--
+			g.deathTimer = 120 // pause before respawn
+			return
+		}
 	}
 }
 
