@@ -22,7 +22,7 @@
 
 Run:
 ```bash
-cd /Users/thorej/opt/claude/go-pacman
+cd ./go-pacman
 go mod init go-pacman
 go get github.com/hajimehoshi/ebiten/v2@latest
 ```
