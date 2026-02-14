@@ -4,6 +4,19 @@ A classic Pac-Man clone built in Go using [Ebitengine](https://ebitengine.org/).
 
 ![screenshot.png](screenshot.png)
 
+## Implementation notes
+Game was made for testing [obra/superpowers](https://github.com/obra/superpowers) in Claude Code.  Except for 
+input and slight guiding during the brainstorming part of superpowers, I left all planning and execution up 
+to Claude (just accepting any suggestions).
+
+I'm on the small `Pro-plan` and quickly ran out of tokens and reached my quota and limits.  After brainstorm, planning and implementing
+2 of 14 steps I had to wait 5 hours for quota reset.
+
+After implementing step 13 of 14 I hit a new limit
+and I had to wait 2 days to continue (sic).
+
+So the project took two days to complete on `Pro-plan`, but the actual time spent with the agent was probably around 1 hour.
+
 ## How to Run
 
 ```bash
