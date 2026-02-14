@@ -129,10 +129,10 @@ func (m *Maze) IsPassable(x, y int) bool {
 }
 
 // IsPassableForGhost returns true if a ghost can move through the tile at (x, y).
-// Ghosts can pass through everything except walls.
+// Active ghosts cannot enter the ghost house or pass through ghost doors.
 func (m *Maze) IsPassableForGhost(x, y int) bool {
 	t := m.TileAt(x, y)
-	return t != TileWall
+	return t != TileWall && t != TileGhostDoor && t != TileGhostHouse
 }
 
 // ConsumeDot consumes a dot or power pellet at (x, y).
