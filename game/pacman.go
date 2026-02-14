@@ -59,8 +59,8 @@ func (p *PacMan) IsAtTileCenter() bool {
 func (p *PacMan) Move(m *Maze) {
 	if p.IsAtTileCenter() {
 		tileX, tileY := p.TileX(), p.TileY()
-		if tileX == p.lastCenterTX && tileY == p.lastCenterTY {
-			goto pacMove // already processed this tile center
+		if p.Dir != DirNone && tileX == p.lastCenterTX && tileY == p.lastCenterTY {
+			goto pacMove // already processed this tile center while moving
 		}
 		p.lastCenterTX = tileX
 		p.lastCenterTY = tileY
