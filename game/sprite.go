@@ -20,10 +20,11 @@ type Sprites struct {
 	PowerPellet  *ebiten.Image
 	Empty        *ebiten.Image
 	GhostDoor    *ebiten.Image
-	PacManFrames [3]*ebiten.Image   // closed, half-open, full-open
-	GhostSprites [4]*ebiten.Image   // one per ghost ID (Blinky, Pinky, Inky, Clyde)
-	GhostFrightened *ebiten.Image   // blue frightened ghost
-	GhostEyes    *ebiten.Image      // just eyes for eaten ghost
+	PacManFrames [3]*ebiten.Image    // closed, half-open, full-open
+	PacManDeath  [11]*ebiten.Image   // death animation frames (progressively larger mouth)
+	GhostSprites [4]*ebiten.Image    // one per ghost ID (Blinky, Pinky, Inky, Clyde)
+	GhostFrightened *ebiten.Image    // blue frightened ghost
+	GhostEyes    *ebiten.Image       // just eyes for eaten ghost
 }
 
 // sprites is the package-level sprite cache, initialized by InitSprites.
@@ -42,6 +43,11 @@ func InitSprites() {
 		ghostSprites[i] = GenerateGhostSprite(ghostColors[i])
 	}
 
+	var deathFrames [11]*ebiten.Image
+	for i := 0; i < 11; i++ {
+		deathFrames[i] = GeneratePacManDeathFrame(i)
+	}
+
 	sprites = &Sprites{
 		Wall:        GenerateWallTile(),
 		Dot:         GenerateDotSprite(),
@@ -53,6 +59,7 @@ func InitSprites() {
 			GeneratePacManFrame(1),
 			GeneratePacManFrame(2),
 		},
+		PacManDeath:     deathFrames,
 		GhostSprites:    ghostSprites,
 		GhostFrightened: GenerateGhostFrightened(),
 		GhostEyes:       GenerateGhostEyes(),
@@ -269,5 +276,41 @@ func GenerateGhostFrightened() *ebiten.Image {
 func GenerateGhostEyes() *ebiten.Image {
 	img := ebiten.NewImage(GhostSpriteSize, GhostSpriteSize)
 	drawGhostEyesOn(img)
+	return img
+}
+
+// GeneratePacManDeathFrame generates a death animation frame.
+// frame 0-10: mouth progressively opens from ~60 degrees to 360 degrees (disappearing).
+func GeneratePacManDeathFrame(frame int) *ebiten.Image {
+	const size = PacManSpriteSize
+	const cx, cy = 6, 6
+	const radius = 6
+
+	img := ebiten.NewImage(size, size)
+	yellow := color.RGBA{R: 0xFF, G: 0xFF, B: 0x00, A: 0xFF}
+
+	// Mouth half-angle: from 30 degrees (frame 0) to 180 degrees (frame 10)
+	mouthHalfAngle := (30.0 + float64(frame)*150.0/10.0) * math.Pi / 180.0
+
+	// Last frame is empty (fully disappeared)
+	if frame == 10 {
+		return img
+	}
+
+	for y := 0; y < size; y++ {
+		for x := 0; x < size; x++ {
+			dx := x - cx
+			dy := y - cy
+			if dx*dx+dy*dy > radius*radius {
+				continue
+			}
+			// Mouth opens upward during death animation
+			angle := math.Atan2(float64(-dx), float64(dy))
+			if angle > -mouthHalfAngle && angle < mouthHalfAngle {
+				continue
+			}
+			img.Set(x, y, yellow)
+		}
+	}
 	return img
 }

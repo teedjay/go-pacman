@@ -267,4 +267,11 @@ func UpdateGhost(g *Ghost, m *Maze, pacman *PacMan, globalMode GhostMode) {
 	case DirRight:
 		g.X += g.Speed
 	}
+
+	// Tunnel wrapping
+	if g.X < 0 {
+		g.X += float64(MazeCols * TileSize)
+	} else if g.X >= float64(MazeCols*TileSize) {
+		g.X -= float64(MazeCols * TileSize)
+	}
 }

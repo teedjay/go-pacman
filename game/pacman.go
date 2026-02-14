@@ -15,13 +15,15 @@ const (
 
 // PacMan represents the player-controlled Pac-Man entity.
 type PacMan struct {
-	X, Y      float64   // pixel position (center of sprite)
-	Dir       Direction  // current movement direction
-	NextDir   Direction  // queued direction from input
-	Speed     float64    // pixels per tick
-	AnimFrame int        // 0, 1, 2 (closed, half, open)
-	AnimTimer int        // ticks until next frame
-	Alive     bool
+	X, Y       float64   // pixel position (center of sprite)
+	Dir        Direction  // current movement direction
+	NextDir    Direction  // queued direction from input
+	Speed      float64    // pixels per tick
+	AnimFrame  int        // 0, 1, 2 (closed, half, open)
+	AnimTimer  int        // ticks until next frame
+	Alive      bool
+	DeathFrame int        // current death animation frame (0-10)
+	DeathTimer int        // ticks remaining in death animation
 }
 
 // NewPacMan creates a new PacMan at the spawn position.
@@ -85,6 +87,13 @@ func (p *PacMan) Move(m *Maze) {
 		p.X -= p.Speed
 	case DirRight:
 		p.X += p.Speed
+	}
+
+	// Tunnel wrapping
+	if p.X < 0 {
+		p.X += float64(MazeCols * TileSize)
+	} else if p.X >= float64(MazeCols*TileSize) {
+		p.X -= float64(MazeCols * TileSize)
 	}
 
 	// Advance animation: cycle through frames every 4 ticks.

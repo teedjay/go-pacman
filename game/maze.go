@@ -107,10 +107,16 @@ func (m *Maze) parse() {
 }
 
 // TileAt returns the tile type at the given grid position.
-// Returns TileWall for out-of-bounds coordinates.
+// Wraps x horizontally for tunnel support. Returns TileWall for out-of-bounds y.
 func (m *Maze) TileAt(x, y int) int {
-	if x < 0 || x >= m.Width || y < 0 || y >= m.Height {
+	if y < 0 || y >= m.Height {
 		return TileWall
+	}
+	// Horizontal wrapping for tunnel
+	if x < 0 {
+		x += m.Width
+	} else if x >= m.Width {
+		x -= m.Width
 	}
 	return m.tiles[y][x]
 }

@@ -34,8 +34,9 @@ type Game struct {
 	highScore        int
 	lives            int
 	level            int
-	ghostsEatenCombo int // resets each power pellet
-	frightenedTimer  int // ticks remaining for frightened mode
+	ghostsEatenCombo int  // resets each power pellet
+	frightenedTimer  int  // ticks remaining for frightened mode
+	extraLifeAwarded bool // true after 10,000 point bonus life
 }
 
 func New() *Game {
@@ -83,6 +84,7 @@ func (g *Game) updateTitle() {
 		g.ghosts = NewGhosts()
 		g.modeTimer = NewModeTimer(1)
 		g.frightenedTimer = 0
+		g.extraLifeAwarded = false
 		g.applyDifficulty()
 		g.state = StateReady
 		g.stateTimer = 120 // 2 seconds
@@ -142,6 +144,17 @@ func (g *Game) updatePlaying() {
 
 func (g *Game) updateDeath() {
 	g.stateTimer--
+
+	// First 30 ticks: freeze (show last frame). Then 88 ticks: death animation (11 frames × 8 ticks each).
+	elapsed := 120 - g.stateTimer
+	if elapsed > 30 {
+		frame := (elapsed - 30) / 8
+		if frame > 10 {
+			frame = 10
+		}
+		g.pacman.DeathFrame = frame
+	}
+
 	if g.stateTimer <= 0 {
 		if g.lives <= 0 {
 			if g.score > g.highScore {
@@ -195,6 +208,12 @@ func (g *Game) checkDotConsumption() {
 		g.score += 50
 		g.sound.PlayPowerUp()
 		g.triggerFrightenedMode()
+	}
+
+	// Extra life at 10,000 points
+	if g.score >= 10000 && !g.extraLifeAwarded {
+		g.lives++
+		g.extraLifeAwarded = true
 	}
 }
 
@@ -276,8 +295,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 	}
 
-	// Draw Pac-Man (not during death after animation would play)
-	if g.pacman.Alive {
+	// Draw Pac-Man
+	if g.state == StateDeath {
+		// Draw death animation
+		g.drawPacManDeath(screen)
+	} else if g.pacman.Alive {
 		g.drawPacMan(screen)
 	}
 
@@ -310,7 +332,12 @@ func (g *Game) drawMaze(screen *ebiten.Image) {
 			case TileDot:
 				tile = sprites.Dot
 			case TilePowerPellet:
-				tile = sprites.PowerPellet
+				// Blink power pellets every 15 ticks
+				if (g.tickCount/15)%2 == 0 {
+					tile = sprites.PowerPellet
+				} else {
+					tile = sprites.Empty
+				}
 			case TileEmpty:
 				tile = sprites.Empty
 			case TileGhostHouse:
@@ -365,6 +392,24 @@ func (g *Game) drawPacMan(screen *ebiten.Image) {
 
 	op.GeoM.Translate(p.X, p.Y+float64(HUDTopRows*TileSize))
 	screen.DrawImage(frame, op)
+}
+
+// drawPacManDeath draws the death animation frame at Pac-Man's position.
+func (g *Game) drawPacManDeath(screen *ebiten.Image) {
+	p := g.pacman
+	frame := p.DeathFrame
+	if frame < 0 {
+		frame = 0
+	}
+	if frame > 10 {
+		frame = 10
+	}
+	sprite := sprites.PacManDeath[frame]
+
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(-6, -6)
+	op.GeoM.Translate(p.X, p.Y+float64(HUDTopRows*TileSize))
+	screen.DrawImage(sprite, op)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
