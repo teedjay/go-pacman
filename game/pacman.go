@@ -24,16 +24,21 @@ type PacMan struct {
 	Alive      bool
 	DeathFrame int        // current death animation frame (0-10)
 	DeathTimer int        // ticks remaining in death animation
+
+	lastCenterTX int // tile where last center processing happened
+	lastCenterTY int
 }
 
 // NewPacMan creates a new PacMan at the spawn position.
 func NewPacMan() *PacMan {
 	return &PacMan{
-		X:     float64(PacmanSpawnX*TileSize + TileSize/2),
-		Y:     float64(PacmanSpawnY*TileSize + TileSize/2),
-		Dir:   DirNone,
-		Speed: 1.5,
-		Alive: true,
+		X:              float64(PacmanSpawnX*TileSize + TileSize/2),
+		Y:              float64(PacmanSpawnY*TileSize + TileSize/2),
+		Dir:            DirNone,
+		Speed:          1.5,
+		Alive:          true,
+		lastCenterTX:   -1,
+		lastCenterTY:   -1,
 	}
 }
 
@@ -53,11 +58,16 @@ func (p *PacMan) IsAtTileCenter() bool {
 // Move updates Pac-Man's position based on current direction and maze walls.
 func (p *PacMan) Move(m *Maze) {
 	if p.IsAtTileCenter() {
-		// Snap to exact tile center.
-		p.X = float64(p.TileX()*TileSize + TileSize/2)
-		p.Y = float64(p.TileY()*TileSize + TileSize/2)
-
 		tileX, tileY := p.TileX(), p.TileY()
+		if tileX == p.lastCenterTX && tileY == p.lastCenterTY {
+			goto pacMove // already processed this tile center
+		}
+		p.lastCenterTX = tileX
+		p.lastCenterTY = tileY
+
+		// Snap to exact tile center.
+		p.X = float64(tileX*TileSize + TileSize/2)
+		p.Y = float64(tileY*TileSize + TileSize/2)
 
 		// Check if NextDir leads to a passable tile; if so, switch.
 		if p.NextDir != DirNone {
@@ -76,6 +86,7 @@ func (p *PacMan) Move(m *Maze) {
 			}
 		}
 	}
+pacMove:
 
 	// Advance position based on direction.
 	switch p.Dir {

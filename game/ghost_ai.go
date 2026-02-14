@@ -212,6 +212,8 @@ func UpdateGhost(g *Ghost, m *Maze, pacman *PacMan, globalMode GhostMode) {
 			g.Y = exitY
 			g.InHouse = false
 			g.Dir = DirLeft
+			g.lastDecisionTX = -1
+			g.lastDecisionTY = -1
 		} else {
 			g.X += (dx / dist) * g.Speed
 			g.Y += (dy / dist) * g.Speed
@@ -226,9 +228,16 @@ func UpdateGhost(g *Ghost, m *Maze, pacman *PacMan, globalMode GhostMode) {
 	}
 
 	if g.isAtTileCenter() {
+		tx, ty := g.TileX(), g.TileY()
+		if tx == g.lastDecisionTX && ty == g.lastDecisionTY {
+			goto move // already processed this tile center
+		}
+		g.lastDecisionTX = tx
+		g.lastDecisionTY = ty
+
 		// Snap to tile center
-		g.X = float64(g.TileX()*TileSize + TileSize/2)
-		g.Y = float64(g.TileY()*TileSize + TileSize/2)
+		g.X = float64(tx*TileSize + TileSize/2)
+		g.Y = float64(ty*TileSize + TileSize/2)
 
 		// Choose direction based on mode
 		switch mode {
@@ -256,6 +265,7 @@ func UpdateGhost(g *Ghost, m *Maze, pacman *PacMan, globalMode GhostMode) {
 		}
 	}
 
+move:
 	// Move in current direction
 	switch g.Dir {
 	case DirUp:

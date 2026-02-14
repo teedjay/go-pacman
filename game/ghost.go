@@ -33,6 +33,9 @@ type Ghost struct {
 	ScatterY  int
 	InHouse   bool // still in ghost house
 	ExitTimer int  // ticks until ghost leaves house
+
+	lastDecisionTX int // tile where last direction decision was made
+	lastDecisionTY int
 }
 
 // NewGhosts creates all four ghosts at their starting positions.
@@ -44,27 +47,31 @@ func NewGhosts() [4]*Ghost {
 			SpawnX: 14, SpawnY: 11,
 			ScatterX: 25, ScatterY: 0,
 			Dir: DirLeft, InHouse: false, ExitTimer: 0,
+			lastDecisionTX: -1, lastDecisionTY: -1,
 		},
 		{
 			ID: Pinky, Speed: 1.3,
 			X: float64(12*TileSize + TileSize/2), Y: float64(14*TileSize + TileSize/2),
 			SpawnX: 12, SpawnY: 14,
 			ScatterX: 2, ScatterY: 0,
-			Dir: DirDown, InHouse: true, ExitTimer: 0, // exits immediately
+			Dir: DirDown, InHouse: true, ExitTimer: 0,
+			lastDecisionTX: -1, lastDecisionTY: -1,
 		},
 		{
 			ID: Inky, Speed: 1.3,
 			X: float64(14*TileSize + TileSize/2), Y: float64(14*TileSize + TileSize/2),
 			SpawnX: 14, SpawnY: 14,
 			ScatterX: 27, ScatterY: 30,
-			Dir: DirUp, InHouse: true, ExitTimer: 300, // exits after 5s
+			Dir: DirUp, InHouse: true, ExitTimer: 300,
+			lastDecisionTX: -1, lastDecisionTY: -1,
 		},
 		{
 			ID: Clyde, Speed: 1.3,
 			X: float64(16*TileSize + TileSize/2), Y: float64(14*TileSize + TileSize/2),
 			SpawnX: 16, SpawnY: 14,
 			ScatterX: 0, ScatterY: 30,
-			Dir: DirUp, InHouse: true, ExitTimer: 600, // exits after 10s
+			Dir: DirUp, InHouse: true, ExitTimer: 600,
+			lastDecisionTX: -1, lastDecisionTY: -1,
 		},
 	}
 }
@@ -87,4 +94,6 @@ func (g *Ghost) ResetToSpawn() {
 		g.Dir = DirUp
 	}
 	g.Mode = GhostScatter
+	g.lastDecisionTX = -1
+	g.lastDecisionTY = -1
 }
