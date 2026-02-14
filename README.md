@@ -2,6 +2,8 @@
 
 A classic Pac-Man clone built in Go using [Ebitengine](https://ebitengine.org/). All sprites, sounds, and fonts are generated programmatically — no external assets required.
 
+![screenshot.png](screenshot.png)
+
 ## How to Run
 
 ```bash
